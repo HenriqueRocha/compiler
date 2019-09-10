@@ -1,17 +1,87 @@
 use std::io;
 use std::io::Read;
+use std::process;
 
-fn main() {
-    let mut lookahead = [0];
-    
-    io::stdin().read(&mut lookahead)
+static mut LOOKAHEAD : char = '\0';
+
+unsafe fn expression() {
+    term();
+    while LOOKAHEAD == '+' || LOOKAHEAD == '-' {
+        emitln("movl %eax, %ebx");
+        match LOOKAHEAD {
+            '+' => add(),
+            '-' => subtract(),
+            _ => expected("Addop"),
+        }
+    }
+}
+
+unsafe fn term() {
+    emitln(&format!("movl ${}, %eax", get_digit()));
+}
+
+unsafe fn next_char() {
+    let mut lookahead_str = [0];
+
+    io::stdin().read(&mut lookahead_str)
         .expect("Read failure");
 
-    let lookahead = lookahead[0] as char;
+    LOOKAHEAD = lookahead_str[0] as char;
+}
 
-    if lookahead.is_ascii_digit() {
-        println!("movl {}, %eax", lookahead);
+fn expected(s: &str) {
+    println!("Error: {} expected.", s);
+    process::exit(1);
+}
+
+unsafe fn match_char(c: char) {
+    if LOOKAHEAD == c {
+        next_char();
     } else {
-        println!("Integer expected");
+        expected(&c.to_string());
+    }
+}
+
+unsafe fn get_digit() -> char {
+    if !LOOKAHEAD.is_ascii_digit() {
+        expected("Integer");
+    }
+    let digit = LOOKAHEAD;
+    next_char();
+    return digit;
+}
+
+unsafe fn add() {
+    match_char('+');
+    term();
+    emitln("addl %ebx, %eax")
+}
+
+unsafe fn subtract() {
+    match_char('-');
+    term();
+    emitln("subl %ebx, %eax");
+    emitln("negl %eax");
+}
+
+fn emitln(s: &str) {
+    println!("    {}", s);
+}
+
+fn main() {
+    unsafe {
+        next_char();
+        
+        println!(".global _start");
+        println!();
+        println!(".text");
+        println!("_start:");
+
+        expression();
+
+        emitln("");
+        emitln("movl $1, %eax");
+        emitln("movl $0, %ebx");
+        emitln("int $0x80");
     }
 }
