@@ -7,7 +7,7 @@ static mut LOOKAHEAD : char = '\0';
 unsafe fn expression() {
     term();
     while LOOKAHEAD == '+' || LOOKAHEAD == '-' {
-        emitln("movl %eax, %ebx");
+        emitln("push %rax");
         match LOOKAHEAD {
             '+' => add(),
             '-' => subtract(),
@@ -16,8 +16,23 @@ unsafe fn expression() {
     }
 }
 
+unsafe fn add() {
+    match_char('+');
+    term();
+    emitln("pop %rbx");
+    emitln("add %rbx, %rax")
+}
+
+unsafe fn subtract() {
+    match_char('-');
+    term();
+    emitln("pop %rbx");
+    emitln("sub %rbx, %rax");
+    emitln("neg %rax");
+}
+
 unsafe fn term() {
-    emitln(&format!("movl ${}, %eax", get_digit()));
+    emitln(&format!("mov ${}, %rax", get_digit()));
 }
 
 unsafe fn next_char() {
@@ -51,19 +66,6 @@ unsafe fn get_digit() -> char {
     return digit;
 }
 
-unsafe fn add() {
-    match_char('+');
-    term();
-    emitln("addl %ebx, %eax")
-}
-
-unsafe fn subtract() {
-    match_char('-');
-    term();
-    emitln("subl %ebx, %eax");
-    emitln("negl %eax");
-}
-
 fn emitln(s: &str) {
     println!("    {}", s);
 }
@@ -80,8 +82,8 @@ fn main() {
         expression();
 
         emitln("");
-        emitln("movl $1, %eax");
-        emitln("movl $0, %ebx");
+        emitln("mov $1, %eax");
+        emitln("mov $0, %ebx");
         emitln("int $0x80");
     }
 }
